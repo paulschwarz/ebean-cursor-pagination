@@ -26,6 +26,7 @@ public class CursorEncoding {
   }
 
   public static Optional<Cursor> decodeCursor(String cursor) {
+    // TODO throw exception if natural ordering is not found in the cursor
     if (cursor == null || cursor.isEmpty()) {
       return Optional.empty();
     }
@@ -72,11 +73,13 @@ public class CursorEncoding {
     }
 
     public <T> T get(String key, Function<String, T> converter) {
-      if (args == null) {
+      Object value = args.get(key);
+
+      if (args == null || value == null) {
         return null;
       }
 
-      return converter.apply(String.valueOf(args.get(key)));
+      return converter.apply(String.valueOf(value));
     }
 
     public Long getId() {

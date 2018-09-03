@@ -31,8 +31,13 @@ public class CursorEncodingTest extends TestCase {
     assertEquals("Example", cursor.getType());
   }
 
-  public void testCursorDecode_null() {
+  public void testCursorDecode_nullCursor() {
     assertFalse(CursorEncoding.decodeCursor("").isPresent());
+  }
+
+  public void testCursorDecode_nullValue() {
+    String encoded = encode("Example{}");
+    assertNull(CursorEncoding.decodeCursor(encoded).get().get("column", String::toString));
   }
 
   public void testCursorDecode() {

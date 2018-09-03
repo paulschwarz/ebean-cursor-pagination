@@ -33,7 +33,7 @@ public class ApiTest extends BaseTestCase {
     expectedNext = expectedNext == null ? false : expectedNext;
 
     assertEquals(100, cursedList.getTotalCount());
-    assertRange(expectations, cursedList.getList(), Example::getId);
+    assertRange(expectations, cursedList.getList(), edge -> edge.getNode().getId());
     assertEquals("Unexpected next value.", expectedNext.booleanValue(), cursedList.hasNext());
     assertEquals("Unexpected prev value.", expectedPrev.booleanValue(), cursedList.hasPrev());
   }

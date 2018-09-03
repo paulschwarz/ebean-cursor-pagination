@@ -6,12 +6,17 @@ import static me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.order;
 import io.ebean.ExpressionList;
 import io.ebean.OrderBy.Property;
 import io.ebean.Query;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding.Cursor;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.OrderBuilder;
+import org.apache.commons.lang3.StringUtils;
 
 public class CursorQueryWrapper<T> {
 
@@ -51,7 +56,7 @@ public class CursorQueryWrapper<T> {
     return cursedListFactory(count, findList(query.copy()));
   }
 
-  private List<T> findList(Query<T> clone) {
+  private List<Edge<T>> findList(Query<T> clone) {
     Iterator<Property> ordering = cursorQuery.orderBuilder
         .getProperties()
         .iterator();
@@ -66,9 +71,7 @@ public class CursorQueryWrapper<T> {
               buildQuery(clone.where(), cursor, ordering);
             }
           });
-    }
-
-    if (cursorQuery.last != null) {
+    } else if (cursorQuery.last != null) {
       clone.orderBy(ordering(true));
       clone.setMaxRows(cursorQuery.last + 1);
 
@@ -78,9 +81,37 @@ public class CursorQueryWrapper<T> {
               buildQuery(clone.where(), cursor, ordering);
             }
           });
+    } else {
+      clone.orderBy(ordering(false));
     }
 
-    return clone.findList();
+    return clone.findList().stream()
+        .map(item -> new Edge<>(item, makeCursor(item)))
+        .collect(Collectors.toList());
+  }
+
+  private Cursor makeCursor(T item) {
+    Map<String, Object> args = new HashMap<>();
+
+    for (Property orderProperty : cursorQuery.orderBuilder.getProperties()) {
+      String key = orderProperty.getProperty();
+      String method = String.format("get%s", StringUtils.capitalize(key));
+
+      try {
+        Object value = item.getClass().getMethod(method)
+            .invoke(item);
+
+        args.put(key, value);
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      } catch (InvocationTargetException e) {
+        e.printStackTrace();
+      } catch (NoSuchMethodException e) {
+        e.printStackTrace();
+      }
+    }
+
+    return new Cursor(item.getClass().getSimpleName(), args);
   }
 
   /**
@@ -91,6 +122,11 @@ public class CursorQueryWrapper<T> {
     boolean asc = orderingProperty.isAscending();
     String col = orderingProperty.getProperty();
     String val = cursor.get(col, String::toString);
+
+    if (ordering.hasNext() && val == null) {
+      buildQuery(expr, cursor, ordering);
+      return;
+    }
 
     if (!ordering.hasNext()) {
       if (asc) {
@@ -119,7 +155,7 @@ public class CursorQueryWrapper<T> {
     return CursorOrdering.make(reverse, cursorQuery.orderBuilder);
   }
 
-  private CursedList<T> cursedListFactory(int count, List<T> rows) {
+  private CursedList<T> cursedListFactory(int count, List<Edge<T>> rows) {
     boolean hasNext = false;
     if (cursorQuery.first != null) {
       hasNext = rows.size() > cursorQuery.first;
@@ -178,17 +214,17 @@ public class CursorQueryWrapper<T> {
   public static class CursedList<T> {
 
     private int count;
-    private List<T> rows;
+    private List<Edge<T>> rows;
     private boolean hasNext, hasPrev;
 
-    CursedList(int count, List<T> rows, boolean hasNext, boolean hasPrev) {
+    CursedList(int count, List<Edge<T>> rows, boolean hasNext, boolean hasPrev) {
       this.count = count;
       this.rows = rows;
       this.hasNext = hasNext;
       this.hasPrev = hasPrev;
     }
 
-    public List<T> getList() {
+    public List<Edge<T>> getList() {
       return rows;
     }
 

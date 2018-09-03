@@ -7,7 +7,7 @@
   <groupId>me.paulschwarz</groupId>
   <artifactId>ebean-cursor-pagination</artifactId>
   <packaging>jar</packaging>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <build>
     <plugins>
       <plugin>
@@ -45,5 +45,17 @@
       <version>11.15.4</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.5</version>
+      <scope>compile</scope>
+    </dependency>
   </dependencies>
+  <distributionManagement>
+    <repository>
+      <id>bintray-ebean-cursor-pagination</id>
+      <url>https://api.bintray.com/maven/paulschwarz/maven/ebean-cursor-pagination/;publish=1</url>
+    </repository>
+  </distributionManagement>
 </project>
