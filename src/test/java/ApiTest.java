@@ -28,14 +28,11 @@ public class ApiTest extends BaseTestCase {
   private void assertResult(CursedList<Example> cursedList, Expectations<Integer> expectations,
       Boolean expectedPrev, Boolean expectedNext) {
     // https://facebook.github.io/relay/graphql/connections.htm#sec-undefined.PageInfo.Fields
-    // The server cannot efficiently determine that elements exist before/after, so return false.
-    expectedPrev = expectedPrev == null ? false : expectedPrev;
-    expectedNext = expectedNext == null ? false : expectedNext;
-
+    // When the server cannot efficiently determine that elements exist before/after, return null.
     assertEquals(100, cursedList.getTotalCount());
     assertRange(expectations, cursedList.getList(), edge -> edge.getNode().getId());
-    assertEquals("Unexpected next value.", expectedNext.booleanValue(), cursedList.hasNext());
-    assertEquals("Unexpected prev value.", expectedPrev.booleanValue(), cursedList.hasPrev());
+    assertEquals("Unexpected next value.", expectedNext, cursedList.hasNext());
+    assertEquals("Unexpected prev value.", expectedPrev, cursedList.hasPrev());
   }
 
   public void testCursorPaginationSync_getWithFirst() {

@@ -156,19 +156,23 @@ public class CursorQueryWrapper<T> {
   }
 
   private CursedList<T> cursedListFactory(int count, List<Edge<T>> rows) {
-    boolean hasNext = false;
+    Boolean hasNext = null, hasPrev = null;
+
     if (cursorQuery.first != null) {
       hasNext = rows.size() > cursorQuery.first;
       if (!rows.isEmpty() && hasNext) {
         rows.remove(rows.size() - 1);
       }
-    }
-
-    boolean hasPrev = false;
-    if (cursorQuery.last != null) {
+      if (cursorQuery.after == null) {
+        hasPrev = false;
+      }
+    } else if (cursorQuery.last != null) {
       hasPrev = rows.size() > cursorQuery.last;
       if (!rows.isEmpty() && hasPrev) {
         rows.remove(rows.size() - 1);
+      }
+      if (cursorQuery.before == null) {
+        hasNext = false;
       }
     }
 
@@ -215,9 +219,9 @@ public class CursorQueryWrapper<T> {
 
     private int count;
     private List<Edge<T>> rows;
-    private boolean hasNext, hasPrev;
+    private Boolean hasNext, hasPrev;
 
-    CursedList(int count, List<Edge<T>> rows, boolean hasNext, boolean hasPrev) {
+    CursedList(int count, List<Edge<T>> rows, Boolean hasNext, Boolean hasPrev) {
       this.count = count;
       this.rows = rows;
       this.hasNext = hasNext;
@@ -232,11 +236,11 @@ public class CursorQueryWrapper<T> {
       return count;
     }
 
-    public boolean hasNext() {
+    public Boolean hasNext() {
       return hasNext;
     }
 
-    public boolean hasPrev() {
+    public Boolean hasPrev() {
       return hasPrev;
     }
   }
