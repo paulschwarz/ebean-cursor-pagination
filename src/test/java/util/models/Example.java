@@ -1,6 +1,9 @@
 package util.models;
 
 import io.ebean.Model;
+import io.ebean.annotation.WhenCreated;
+import io.ebean.annotation.WhenModified;
+import java.time.Instant;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
@@ -11,6 +14,10 @@ public class Example extends Model {
   private Integer id;
   private int rank;
   private String parity;
+  @WhenCreated
+  private Instant createdAt;
+  @WhenModified
+  private Instant updatedAt;
 
   public Example(int rank, String parity) {
     this.rank = rank;
@@ -29,12 +36,16 @@ public class Example extends Model {
     return parity;
   }
 
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
   @Override
   public String toString() {
     return String.format("%s(%d,%d,%s)",
         getClass().getSimpleName(),
-        getId(),
-        getRank(),
-        getParity());
+        id,
+        rank,
+        parity);
   }
 }

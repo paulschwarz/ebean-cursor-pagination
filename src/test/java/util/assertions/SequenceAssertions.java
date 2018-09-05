@@ -56,7 +56,7 @@ public class SequenceAssertions {
 
         @Override
         public boolean hasNext() {
-          return values.length > index + 1;
+          return values.length > index;
         }
 
         @Override

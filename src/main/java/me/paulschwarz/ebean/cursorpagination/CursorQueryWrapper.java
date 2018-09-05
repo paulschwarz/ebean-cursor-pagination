@@ -12,13 +12,22 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding.Cursor;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.OrderBuilder;
+import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidBeanException;
+import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidNaturalOrderingException;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CursorQueryWrapper<T> {
+
+  private Logger logger = LoggerFactory.getLogger(CursorQueryWrapper.class);
 
   private Query<T> query;
   private CursorQuery cursorQuery;
@@ -28,7 +37,15 @@ public class CursorQueryWrapper<T> {
   public CursorQueryWrapper(Query<T> query, OrderBuilder naturalOrdering) {
     this.query = query;
     this.cursorQuery = new CursorQuery();
-    this.naturalOrdering = naturalOrdering.getProperties().get(0);
+    this.naturalOrdering = getNaturalOrderingProperty(naturalOrdering);
+  }
+
+  private Property getNaturalOrderingProperty(OrderBuilder naturalOrdering) {
+    List<Property> orderingProperties = naturalOrdering.getProperties();
+    if (orderingProperties.size() != 1) {
+      throw new InvalidNaturalOrderingException();
+    }
+    return orderingProperties.get(0);
   }
 
   public CursorQuery cursor() {
@@ -57,30 +74,21 @@ public class CursorQueryWrapper<T> {
   }
 
   private List<Edge<T>> findList(Query<T> clone) {
-    Iterator<Property> ordering = cursorQuery.orderBuilder
-        .getProperties()
-        .iterator();
+    List<Property> orderingList = cursorQuery.orderBuilder
+        .getProperties();
 
     if (cursorQuery.first != null) {
       clone.orderBy(ordering(false));
       clone.setMaxRows(cursorQuery.first + 1);
 
       decodeCursor(cursorQuery.after)
-          .ifPresent(cursor -> {
-            if (ordering.hasNext()) {
-              buildQuery(clone.where(), cursor, ordering);
-            }
-          });
+          .ifPresent(cursor -> buildCloneQuery(clone, orderingList, cursor));
     } else if (cursorQuery.last != null) {
       clone.orderBy(ordering(true));
       clone.setMaxRows(cursorQuery.last + 1);
 
       decodeCursor(cursorQuery.before)
-          .ifPresent(cursor -> {
-            if (ordering.hasNext()) {
-              buildQuery(clone.where(), cursor, ordering);
-            }
-          });
+          .ifPresent(cursor -> buildCloneQuery(clone, orderingList, cursor));
     } else {
       clone.orderBy(ordering(false));
     }
@@ -90,41 +98,44 @@ public class CursorQueryWrapper<T> {
         .collect(Collectors.toList());
   }
 
-  private Cursor makeCursor(T item) {
-    Map<String, Object> args = new HashMap<>();
+  private void buildCloneQuery(Query<T> clone, List<Property> orderingList, Cursor cursor) {
+    if (!validateCursor(orderingList, cursor)) {
+      logger.debug("Ignoring cursor because cursor and order do not contain the exact same properties.");
+      return;
+    }
 
-    for (Property orderProperty : cursorQuery.orderBuilder.getProperties()) {
-      String key = orderProperty.getProperty();
-      String method = String.format("get%s", StringUtils.capitalize(key));
+    Iterator<Property> ordering = orderingList.iterator();
+    if (ordering.hasNext()) {
+      applyCriteria(clone.where(), cursor, ordering);
+    }
+  }
 
-      try {
-        Object value = item.getClass().getMethod(method)
-            .invoke(item);
+  private boolean validateCursor(List<Property> orderingList, Cursor cursor) {
+    if (orderingList.size() != cursor.getArgs().size()) {
+      return false;
+    }
 
-        args.put(key, value);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      } catch (NoSuchMethodException e) {
-        e.printStackTrace();
+    for (Map.Entry<String, Object> arg : cursor.getArgs().entrySet()) {
+      if (orderingList.stream()
+          .noneMatch(property -> property.getProperty().equals(arg.getKey()))) {
+        return false;
       }
     }
 
-    return new Cursor(item.getClass().getSimpleName(), args);
+    return true;
   }
 
   /**
    * Inspired by https://stackoverflow.com/a/38017813/2694806
    */
-  private void buildQuery(ExpressionList<T> expr, Cursor cursor, Iterator<Property> ordering) {
+  private void applyCriteria(ExpressionList<T> expr, Cursor cursor, Iterator<Property> ordering) {
     Property orderingProperty = ordering.next();
     boolean asc = orderingProperty.isAscending();
     String col = orderingProperty.getProperty();
     String val = cursor.get(col, String::toString);
 
     if (ordering.hasNext() && val == null) {
-      buildQuery(expr, cursor, ordering);
+      applyCriteria(expr, cursor, ordering);
       return;
     }
 
@@ -144,9 +155,33 @@ public class CursorQueryWrapper<T> {
       subExpr = expr.le(col, val).or().lt(col, val);
     }
 
-    buildQuery(subExpr.and(), cursor, ordering);
+    applyCriteria(subExpr.and(), cursor, ordering);
 
     subExpr.endOr().endAnd();
+  }
+
+  private Cursor makeCursor(T item) {
+    Map<String, Object> args = new HashMap<>();
+
+    for (Property orderProperty : cursorQuery.orderBuilder.getProperties()) {
+      String key = orderProperty.getProperty();
+      getValueFromBean(item, key).ifPresent(value -> args.put(key, value));
+    }
+
+    return new Cursor(item.getClass().getSimpleName(), args);
+  }
+
+  private Optional<Object> getValueFromBean(T item, String key) {
+    String method = String.format("get%s", StringUtils.capitalize(key));
+    Object value;
+
+    try {
+      value = item.getClass().getMethod(method).invoke(item);
+    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+      throw new InvalidBeanException(method, item.getClass());
+    }
+
+    return Optional.ofNullable(value);
   }
 
   private String ordering(boolean reverse) {

@@ -7,7 +7,7 @@ public class Edge<T> {
   private final T node;
   private final Cursor cursor;
 
-  public Edge(T node, Cursor cursor) {
+  Edge(T node, Cursor cursor) {
     this.node = node;
     this.cursor = cursor;
   }
@@ -18,5 +18,10 @@ public class Edge<T> {
 
   public Cursor getCursor() {
     return cursor;
+  }
+
+  @Override
+  public String toString() {
+    return String.format("Edge(%s)", node);
   }
 }

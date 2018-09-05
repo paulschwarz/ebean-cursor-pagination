@@ -24,5 +24,4 @@ public class ExampleFactory extends Factory<Example> {
         parity
     );
   }
-
 }
