@@ -3,11 +3,12 @@ package util;
 import io.ebean.Ebean;
 import io.ebean.EbeanServer;
 import junit.framework.TestCase;
+import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.models.Example;
 
-public abstract class BaseTestCase extends TestCase {
+public abstract class BaseTestCase {
 
   private static final Logger log = LoggerFactory.getLogger(BaseTestCase.class);
 
@@ -18,8 +19,8 @@ public abstract class BaseTestCase extends TestCase {
     log.info("Bootstrap EbeanServer instance {}", ebeanServer.getName());
   }
 
-  @Override
-  protected void setUp() {
+  @Before
+  public void clearDb() {
     Ebean.createQuery(Example.class).delete();
 
     Ebean.execute(Ebean.createSqlUpdate("ALTER TABLE example ALTER COLUMN id RESTART WITH 1"));

@@ -6,21 +6,28 @@ import static me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.order;
 import io.ebean.ExpressionList;
 import io.ebean.OrderBy.Property;
 import io.ebean.Query;
+import io.ebeaninternal.server.deploy.BeanProperty;
+import io.ebeaninternal.server.querydefn.DefaultOrmQuery;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding.Cursor;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.OrderBuilder;
+import me.paulschwarz.ebean.cursorpagination.exceptions.BadCursorArgumentException;
+import me.paulschwarz.ebean.cursorpagination.exceptions.CursedQueryException;
 import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidBeanException;
 import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidNaturalOrderingException;
+import me.paulschwarz.ebean.cursorpagination.exceptions.MissingBaseQueryException;
+import me.paulschwarz.ebean.cursorpagination.exceptions.MissingConverterException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,23 +36,72 @@ public class CursorQueryWrapper<T> {
 
   private Logger logger = LoggerFactory.getLogger(CursorQueryWrapper.class);
 
+  public static <T> Builder<T> builder() {
+    return new Builder<>();
+  }
+
+  public static class Builder<T> {
+
+    private Map<Class, Function<String, Object>> converters;
+    private Query<T> baseQuery;
+    private OrderBuilder naturalOrdering;
+
+    private Builder() {
+      converters = new HashMap<>();
+      converters.put(Integer.class, Integer::parseInt);
+      converters.put(String.class, String::toString);
+      converters.put(Instant.class, Instant::parse);
+    }
+
+    public Builder<T> addConverter(Class type, Function<String, Object> converter){
+      converters.put(type, converter);
+      return this;
+    }
+
+    public Builder<T> baseQuery(Query<T> baseQuery) {
+      this.baseQuery = baseQuery;
+      return this;
+    }
+
+    public Builder<T> naturalOrdering(OrderBuilder naturalOrdering) {
+      this.naturalOrdering = naturalOrdering;
+      return this;
+    }
+
+    public CursorQueryWrapper<T> build() {
+      if (baseQuery == null) {
+        throw new MissingBaseQueryException();
+      }
+
+      return new CursorQueryWrapper<>(baseQuery, getNaturalOrderingProperty(naturalOrdering), converters);
+    }
+
+    private Property getNaturalOrderingProperty(OrderBuilder naturalOrdering) {
+      if (naturalOrdering == null) {
+        throw new InvalidNaturalOrderingException();
+      }
+
+      List<Property> orderingProperties = naturalOrdering.getProperties();
+      if (orderingProperties.size() != 1) {
+        throw new InvalidNaturalOrderingException();
+      }
+
+      return orderingProperties.get(0);
+    }
+  }
+
   private Query<T> query;
   private CursorQuery cursorQuery;
   private Property naturalOrdering;
+  private final Map<Class,Function<String,Object>> converters;
   private boolean reversed;
 
-  public CursorQueryWrapper(Query<T> query, OrderBuilder naturalOrdering) {
+  private CursorQueryWrapper(Query<T> query, Property naturalOrdering,
+      Map<Class, Function<String, Object>> converters) {
     this.query = query;
     this.cursorQuery = new CursorQuery();
-    this.naturalOrdering = getNaturalOrderingProperty(naturalOrdering);
-  }
-
-  private Property getNaturalOrderingProperty(OrderBuilder naturalOrdering) {
-    List<Property> orderingProperties = naturalOrdering.getProperties();
-    if (orderingProperties.size() != 1) {
-      throw new InvalidNaturalOrderingException();
-    }
-    return orderingProperties.get(0);
+    this.naturalOrdering = naturalOrdering;
+    this.converters = converters;
   }
 
   public CursorQuery cursor() {
@@ -70,7 +126,13 @@ public class CursorQueryWrapper<T> {
 
     // first query for total count and then apply cursorQuery criteria and find list
     int count = query.findCount();
-    return cursedListFactory(count, findList(query.copy()));
+    try {
+      return cursedListFactory(count, findList(query.copy()));
+    } catch (InvalidBeanException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new CursedQueryException(e);
+    }
   }
 
   private List<Edge<T>> findList(Query<T> clone) {
@@ -100,7 +162,8 @@ public class CursorQueryWrapper<T> {
 
   private void buildCloneQuery(Query<T> clone, List<Property> orderingList, Cursor cursor) {
     if (!validateCursor(orderingList, cursor)) {
-      logger.debug("Ignoring cursor because cursor and order do not contain the exact same properties.");
+      logger.debug(
+          "Ignoring cursor because cursor and order do not contain the exact same properties.");
       return;
     }
 
@@ -132,7 +195,7 @@ public class CursorQueryWrapper<T> {
     Property orderingProperty = ordering.next();
     boolean asc = orderingProperty.isAscending();
     String col = orderingProperty.getProperty();
-    String val = cursor.get(col, String::toString);
+    Object val = getColumnValue(expr.query(), cursor, col);
 
     if (ordering.hasNext() && val == null) {
       applyCriteria(expr, cursor, ordering);
@@ -158,6 +221,23 @@ public class CursorQueryWrapper<T> {
     applyCriteria(subExpr.and(), cursor, ordering);
 
     subExpr.endOr().endAnd();
+  }
+
+  private Object getColumnValue(Query<T> query, Cursor cursor, String col) {
+    Collection<BeanProperty> props = ((DefaultOrmQuery<T>) query)
+        .getBeanDescriptor()
+        .propertiesAll();
+
+    BeanProperty prop = props.stream()
+        .filter(p -> p.getName().equals(col))
+        .findFirst()
+        .orElseThrow(() -> new BadCursorArgumentException(props, col));
+
+    Class type = prop.getScalarType().getType();
+    Function<String, Object> converter = Optional.ofNullable(converters.get(type))
+        .orElseThrow(() -> new MissingConverterException(type));
+
+    return cursor.get(col, converter);
   }
 
   private Cursor makeCursor(T item) {

@@ -1,0 +1,10 @@
+version: '3.3'
+services:
+  postgres:
+    image: postgres:10.2
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: local
+      POSTGRES_USER: local
+      POSTGRES_PASSWORD: secret

@@ -1,5 +1,3 @@
 .idea/
 *.iml
-/db-create-all.sql
-/db-drop-all.sql
 /target/

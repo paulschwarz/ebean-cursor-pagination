@@ -1,5 +1,6 @@
 package me.paulschwarz.ebean.cursorpagination.cursor;
 
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -98,7 +99,14 @@ public class CursorEncoding {
       StringBuilder output = new StringBuilder(type).append("{");
 
       for (Map.Entry item : args.entrySet()) {
-        output.append(String.format("%s(%s)", item.getKey(), item.getValue()));
+        String val;
+        // TODO support more types via customization
+        if (item.getValue() instanceof Instant) {
+          val = String.valueOf(((Instant) item.getValue()).toEpochMilli());
+        } else {
+          val = String.valueOf(item.getValue());
+        }
+        output.append(String.format("%s(%s)", item.getKey(), val));
       }
 
       output.append("}");

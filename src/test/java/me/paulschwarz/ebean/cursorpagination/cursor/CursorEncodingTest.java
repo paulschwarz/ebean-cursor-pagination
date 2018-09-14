@@ -25,7 +25,7 @@ public class CursorEncodingTest extends TestCase {
     args.put("created", Instant.EPOCH);
     CursorEncoding.Cursor cursor = new CursorEncoding.Cursor("Example", args);
 
-    String expected = "Example{created(1970-01-01T00:00:00Z)id(100)}";
+    String expected = "Example{created(0)id(100)}";
     assertEquals(expected, cursor.toString());
     assertEquals(encode(expected), cursor.encode());
     assertEquals("Example", cursor.getType());
