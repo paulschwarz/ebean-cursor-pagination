@@ -45,6 +45,7 @@ public class CursorQueryWrapper<T> {
     private Builder() {
       converters = new HashMap<>();
       converters.put(Integer.class, Integer::parseInt);
+      converters.put(Long.class, Long::parseLong);
       converters.put(String.class, String::toString);
       converters.put(Instant.class, Instant::parse);
     }
