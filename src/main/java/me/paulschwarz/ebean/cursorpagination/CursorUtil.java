@@ -25,4 +25,8 @@ public class CursorUtil {
         .findFirst()
         .orElseThrow(() -> new BadCursorArgumentException(props, key));
   }
+
+  public static <T> String getBeanName(Query<T> query) {
+    return query.getBeanType().getName();
+  }
 }

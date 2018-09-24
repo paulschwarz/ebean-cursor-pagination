@@ -1,5 +1,6 @@
 package me.paulschwarz.ebean.cursorpagination;
 
+import static me.paulschwarz.ebean.cursorpagination.CursorUtil.getBeanName;
 import static me.paulschwarz.ebean.cursorpagination.CursorUtil.getBeanProperty;
 import static me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding.decodeCursor;
 import static me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.order;
@@ -226,7 +227,7 @@ public class CursorQueryWrapper<T> {
     Class type = prop.getScalarType().getType();
 
     Function<String, Object> converter = Optional.ofNullable(converters.get(type))
-        .orElseThrow(() -> new MissingConverterException(type));
+        .orElseThrow(() -> new MissingConverterException(type, getBeanName(query), col));
 
     return cursor.get(col, converter);
   }
