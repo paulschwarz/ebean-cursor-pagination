@@ -103,9 +103,9 @@ public class PostgresIntegrationTest extends BaseTestCase {
 
     queryWrapper.cursor()
         .first(10)
-        .after(CursorEncoding.encode("Example{id(91)}"));
+        .after(CursorEncoding.encode("Example{id(81)}"));
 
-    assertResult(queryWrapper.findCursedList(), range(90, 81), null, true);
+    assertResult(queryWrapper.findCursedList(), range(80, 71), null, true);
   }
 
   @Test

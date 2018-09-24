@@ -1,5 +1,6 @@
 package me.paulschwarz.ebean.cursorpagination;
 
+import static me.paulschwarz.ebean.cursorpagination.CursorUtil.getValueFromBean;
 import static me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding.decodeCursor;
 import static me.paulschwarz.ebean.cursorpagination.cursor.CursorOrdering.order;
 
@@ -249,19 +250,6 @@ public class CursorQueryWrapper<T> {
     }
 
     return new Cursor(item.getClass().getSimpleName(), args);
-  }
-
-  private Optional<Object> getValueFromBean(T item, String key) {
-    String method = String.format("get%s", StringUtils.capitalize(key));
-    Object value;
-
-    try {
-      value = item.getClass().getMethod(method).invoke(item);
-    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-      throw new InvalidBeanException(method, item.getClass());
-    }
-
-    return Optional.ofNullable(value);
   }
 
   private String ordering(boolean reverse) {
