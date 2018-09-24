@@ -3,7 +3,7 @@ package util;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
-import io.ebean.config.dbplatform.h2.H2Platform;
+import io.ebean.config.dbplatform.postgres.PostgresPlatform;
 
 class BootstrapEbean {
 
@@ -11,7 +11,7 @@ class BootstrapEbean {
 
   BootstrapEbean() {
     config.loadFromProperties();
-    config.setDatabasePlatform(new H2Platform());
+    config.setDatabasePlatform(new PostgresPlatform());
   }
 
   EbeanServer create() {
