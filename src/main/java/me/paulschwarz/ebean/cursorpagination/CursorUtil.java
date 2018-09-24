@@ -1,22 +1,28 @@
 package me.paulschwarz.ebean.cursorpagination;
 
-import java.lang.reflect.InvocationTargetException;
+import io.ebean.Query;
+import io.ebeaninternal.server.deploy.BeanProperty;
+import io.ebeaninternal.server.querydefn.DefaultOrmQuery;
+import java.util.Collection;
 import java.util.Optional;
-import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidBeanException;
-import org.apache.commons.lang3.StringUtils;
+import me.paulschwarz.ebean.cursorpagination.exceptions.BadCursorArgumentException;
 
 public class CursorUtil {
 
-  public static <T> Optional<Object> getValueFromBean(T item, String key) {
-    String method = String.format("get%s", StringUtils.capitalize(key));
-    Object value;
+  public static <T> Optional<Object> getValueFromBean(Query<T> query, T item, String key) {
+    BeanProperty prop = getBeanProperty(query, key);
 
-    try {
-      value = item.getClass().getMethod(method).invoke(item);
-    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-      throw new InvalidBeanException(method, item.getClass());
-    }
+    return Optional.ofNullable(prop.getVal(item));
+  }
 
-    return Optional.ofNullable(value);
+  public static <T> BeanProperty getBeanProperty(Query<T> query, String key) {
+    Collection<BeanProperty> props = ((DefaultOrmQuery<T>) query)
+        .getBeanDescriptor()
+        .propertiesAll();
+
+    return props.stream()
+        .filter(p -> p.getName().equals(key))
+        .findFirst()
+        .orElseThrow(() -> new BadCursorArgumentException(props, key));
   }
 }

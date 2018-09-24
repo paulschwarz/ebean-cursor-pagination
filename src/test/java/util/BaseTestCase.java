@@ -2,7 +2,6 @@ package util;
 
 import io.ebean.Ebean;
 import io.ebean.EbeanServer;
-import junit.framework.TestCase;
 import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

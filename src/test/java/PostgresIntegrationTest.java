@@ -15,7 +15,6 @@ import me.paulschwarz.ebean.cursorpagination.CursorQueryWrapper;
 import me.paulschwarz.ebean.cursorpagination.CursorQueryWrapper.CursedList;
 import me.paulschwarz.ebean.cursorpagination.cursor.CursorEncoding;
 import me.paulschwarz.ebean.cursorpagination.exceptions.CursedQueryException;
-import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidBeanException;
 import me.paulschwarz.ebean.cursorpagination.exceptions.InvalidNaturalOrderingException;
 import org.junit.Before;
 import org.junit.Test;
@@ -192,8 +191,8 @@ public class PostgresIntegrationTest extends BaseTestCase {
     queryWrapper.findCursedList();
   }
 
-  @Test(expected = InvalidBeanException.class)
-  public void testCursorPaginationSync_InvalidBeanException_updatedAtIsNotAccessible() {
+  @Test
+  public void testCursorPaginationSync_enhancedField_updatedAt() {
     CursorQueryWrapper<Example> queryWrapper = getExampleCursorQueryWrapper();
 
     queryWrapper.cursor()
